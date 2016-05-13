@@ -1,8 +1,8 @@
-name:                palette-apply
+name:                Palettize
 version:             0.1.0.0
 synopsis:            Palettize all images in a directory
 description:         Please see README.md
-homepage:            https://github.com/charlesHD/palette-apply#readme
+homepage:            https://github.com/charlesHD/Palettize#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Charles Huyghues-Despointes
@@ -21,27 +21,27 @@ library
                      , directory >= 1.2.2.0
   default-language:    Haskell2010
 
-executable palette-apply-exe
+executable palettize
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       JuicyPixels >= 3.2.7
                      , base
                      , directory >= 1.2.2.0
-                     , palette-apply
+                     , Palettize
   default-language:    Haskell2010
 
-test-suite palette-apply-test
+test-suite palettize-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       JuicyPixels >= 3.2.7
                      , base
                      , directory >= 1.2.2.0
-                     , palette-apply
+                     , Palettize
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
 source-repository head
   type:     git
-  location: https://github.com/charlesHD/palette-apply
+  location: https://github.com/charlesHD/Palettize
