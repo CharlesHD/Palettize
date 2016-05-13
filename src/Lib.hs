@@ -5,6 +5,10 @@ import Codec.Picture
 import System.Directory
 import Control.Monad
 import Data.List
+import System.Info
+
+dirSep :: String
+dirSep = if os == "linux" then "/" else "\\"
 
 isImage :: FilePath -> Bool
 isImage p = any (`isSuffixOf` p) formats
@@ -15,6 +19,7 @@ paletteThem paletteFile imgDir =
             do dynimg <- readImage paletteFile
                let palette = fmap convertRGB8 dynimg
                files <- getDirectoryContents imgDir
+
                let imgs = filter isImage files
                either putStrLn (\x -> mapM_ (paletteIt imgDir x) imgs) palette
 
@@ -44,14 +49,14 @@ distance :: PixelRGB8 -> PixelRGB8 -> Int
 distance (PixelRGB8 r1 g1 b1) (PixelRGB8 r2 g2 b2) = abs $ (fromIntegral r2 - fromIntegral r1) * (fromIntegral g2 - fromIntegral g1) * (fromIntegral b2 - fromIntegral b1)
 
 paletteIt :: FilePath -> Palette -> FilePath -> IO ()
-paletteIt dir pal file = do dynimg <- readImage file
+paletteIt dir pal file = do dynimg <- readImage $ dir ++ dirSep ++ file
                             putStrLn $ "treating : " ++ file
                             let img = fmap convertRGB8 dynimg
                             let palOpt = mkPalOpt pal
                             let paletted = fmap (palettize palOpt) img
                             let pal2 = fmap snd paletted
                             let palettedImg = fmap fst paletted
-                            createDirectoryIfMissing True (dir ++ "/res")
-                            let act = uncurry (writeGifImageWithPalette (dir ++ "/res/" ++ file ++ ".gif")) =<< liftM2 (,) palettedImg (fmap (reorderPalette pal) pal2)
+                            createDirectoryIfMissing True (dir ++ dirSep ++ "res")
+                            let act = uncurry (writeGifImageWithPalette (dir ++ dirSep ++ "res" ++ dirSep ++ file ++ ".gif")) =<< liftM2 (,) palettedImg (fmap (reorderPalette pal) pal2)
                             either putStrLn id act
                             putStrLn "done"
