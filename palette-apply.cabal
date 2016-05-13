@@ -1,0 +1,47 @@
+name:                palette-apply
+version:             0.1.0.0
+synopsis:            Palettize all images in a directory
+description:         Please see README.md
+homepage:            https://github.com/charlesHD/palette-apply#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Charles Huyghues-Despointes
+maintainer:          charleshdespointes@gmail.com
+copyright:           2016 Charles Huyghues-Despoints
+category:            Image
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Lib
+  build-depends:       JuicyPixels >= 3.2.7
+                     , base >= 4.7 && < 5
+                     , directory >= 1.2.2.0
+  default-language:    Haskell2010
+
+executable palette-apply-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       JuicyPixels >= 3.2.7
+                     , base
+                     , directory >= 1.2.2.0
+                     , palette-apply
+  default-language:    Haskell2010
+
+test-suite palette-apply-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       JuicyPixels >= 3.2.7
+                     , base
+                     , directory >= 1.2.2.0
+                     , palette-apply
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/charlesHD/palette-apply
