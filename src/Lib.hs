@@ -43,7 +43,7 @@ bestPerm [] _ = []
 bestPerm (x:xs) l = let best = minimumBy (comparePerm x) l
                         comparePerm x p1 p2 = compare (distance x p1) (distance x p2)
                         l' = filter (/= best) l
-                    in best : bestPerm xs l'
+                    in best : bestPerm xs l
 
 distance :: PixelRGB8 -> PixelRGB8 -> Int
 distance (PixelRGB8 r1 g1 b1) (PixelRGB8 r2 g2 b2) = abs $ (fromIntegral r2 - fromIntegral r1) * (fromIntegral g2 - fromIntegral g1) * (fromIntegral b2 - fromIntegral b1)
