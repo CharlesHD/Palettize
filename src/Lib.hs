@@ -51,7 +51,7 @@ paletteThem' pFile imgDir =
                              bigP <- paletteItAnnexe palette bigImg
                              let pImgs = splitImages bigP width
                              let pImgsWithName = zip pImgs imgFiles
-                             let ios = mapM_ (\(img, f) -> writePng (imgDir ++ dirSep ++ "res" ++ dirSep ++ f ++ ".png") img) pImgsWithName
+                             let ios = mapM_ (\(img, f) -> putStrLn ("treating : " ++ f) >> writePng (imgDir ++ dirSep ++ "res" ++ dirSep ++ f ++ ".png") img >> putStrLn "done") pImgsWithName
                              return ios
                 either putStrLn id res
 
