@@ -27,32 +27,35 @@ concatImage :: Pixel a => Image a -> Image a -> Image a
 concatImage a b = generateImage fc (imageWidth a + imageWidth b) (imageHeight a)
             where fc x y = if x < imageWidth a then pixelAt a x y else pixelAt b (x - imageWidth a) y
 
-concatImages :: [Image PixelRGB8] -> Image PixelRGB8
-concatImages [] = generateImage (\_ _ -> PixelRGB8 0 0 0) 0 0
+concatImages :: [Image PixelRGBA8] -> Image PixelRGBA8
+concatImages [] = generateImage (\_ _ -> PixelRGBA8 0 0 0 0) 0 0
 concatImages (x:xs) = foldl' concatImage x xs
 
 splitImages :: Pixel a => Image a -> Int -> [Image a]
 splitImages a n = if (imageWidth a < n) then []
-		  else generateImage (\x y -> pixelAt a x y) n (imageHeight a) : splitImages (generateImage (\x y -> pixelAt a (x + n) y) (imageWidth a - n) (imageHeight a)) n
+                  else generateImage (\x y -> pixelAt a x y) n (imageHeight a) : splitImages (generateImage (\x y -> pixelAt a (x + n) y) (imageWidth a -                   n) (imageHeight a)) n
 
 paletteThem' :: FilePath -> FilePath -> IO ()
 paletteThem' pFile imgDir =
              do dynimg <- readImage pFile
-	        let palette = fmap convertRGB8 dynimg
-		let palOpt = fmap mkPalOpt palette
-		files <- getDirectoryContents imgDir
-		let imgFiles = filter isImage files
-		imgs <- mapM readImage imgFiles
-		let imgs' = mapM (fmap convertRGB8) imgs
-		let width = fmap (imageWidth . head) imgs'
-		let bigImg = fmap concatImages imgs'
-		let paletted = liftM2 palettize palOpt palette
-		let pal2 = fmap snd paletted
-		let palImg = fmap fst paletted
-		let newPal = liftM2 reorderPalette palette pal2
-		let pImgs = liftM2 splitImages palImg width
-		let act = fmap sequence_ $ (\(p, xs) -> mapM (\(i, f) -> writeGifImageWithPalette (imgDir ++ dirSep ++ "res" ++ dirSep ++ f ++ ".gif") i p) (zip xs imgFiles)) =<< liftM2 (,) newPal pImgs
-		either putStrLn id act
+                files <- getDirectoryContents imgDir
+                let imgFiles = filter isImage files
+                imgs <- mapM readImage imgFiles
+                createDirectoryIfMissing True (imgDir ++ dirSep ++ "res")
+                let res = do dimg <- dynimg
+                             imgs' <- sequence imgs
+                             let palette = convertRGB8 dimg
+                             let imgs'' = map convertRGBA8 imgs'
+                             let width = imageWidth $ head imgs''
+                             let bigImg =ImageRGBA8 $ concatImages imgs''
+                             bigP <- paletteItAnnexe palette bigImg
+                             let pImgs = splitImages bigP width
+                             let pImgsWithName = zip pImgs imgFiles
+                             let ios = mapM_ (\(img, f) -> writePng (imgDir ++ dirSep ++ "res" ++ dirSep ++ f ++ ".png") img) pImgsWithName
+                             return ios
+                either putStrLn id res
+
+
 
 mkPalOpt :: Palette -> PaletteOptions
 mkPalOpt p = PaletteOptions {
