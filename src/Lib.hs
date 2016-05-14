@@ -5,6 +5,7 @@ import Codec.Picture
 import System.Directory
 import Control.Monad
 import Data.List
+import qualified Data.ByteString.Lazy as B
 import System.Info
 
 dirSep :: String
@@ -80,12 +81,24 @@ distance (PixelRGB8 r1 g1 b1) (PixelRGB8 r2 g2 b2) = abs $ (fromIntegral r2 - fr
 paletteIt :: FilePath -> Palette -> FilePath -> IO ()
 paletteIt dir pal file = do dynimg <- readImage $ dir ++ dirSep ++ file
                             putStrLn $ "treating : " ++ file
-                            let img = fmap convertRGB8 dynimg
-                            let palOpt = mkPalOpt pal
-                            let paletted = fmap (palettize palOpt) img
-                            let pal2 = fmap snd paletted
-                            let palettedImg = fmap fst paletted
                             createDirectoryIfMissing True (dir ++ dirSep ++ "res")
-                            let act = uncurry (writeGifImageWithPalette (dir ++ dirSep ++ "res" ++ dirSep ++ file ++ ".gif")) =<< liftM2 (,) palettedImg (fmap (reorderPalette pal) pal2)
-                            either putStrLn id act
+                            let img = paletteItAnnexe pal =<< dynimg
+                            either putStrLn (writePng (dir ++ dirSep ++ "res" ++ dirSep ++ file ++ ".png")) img
                             putStrLn "done"
+
+
+paletteItAnnexe :: Palette -> DynamicImage -> Either String (Image PixelRGBA8)
+paletteItAnnexe p img =
+    let img' = convertRGBA8 img
+        appendAlpha a =
+            generateImage (\x y -> let (PixelRGB8 r g b) = pixelAt a x y
+                                       (PixelRGBA8 _ _ _ alp) = pixelAt img' x y
+                                   in PixelRGBA8 r g b alp) (imageWidth a) (imageHeight a)
+        palOpt = mkPalOpt p
+        (pImg, p2) = palettize palOpt
+                               (pixelMap (\(PixelRGBA8 r g b _ ) -> PixelRGB8 r g b) img')
+        p3 = reorderPalette p p2
+    in do gifByte <- encodeGifImageWithPalette pImg p3
+          gif <- decodeImage $ B.toStrict gifByte
+          let rgb = convertRGB8 gif
+          return $ appendAlpha rgb
