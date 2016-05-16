@@ -15,13 +15,20 @@ isImage :: FilePath -> Bool
 isImage p = any (`isSuffixOf` p) formats
         where formats = [".jpg", ".jpeg", ".png", ".gif"]
 
-paletteThem :: FilePath -> FilePath ->  IO ()
-paletteThem paletteFile imgDir =
-            do dynimg <- readImage paletteFile
-               let palette = fmap convertRGB8 dynimg
-               files <- getDirectoryContents imgDir
-               let imgs = filter isImage files
-               either putStrLn (\x -> mapM_ (paletteIt imgDir x) imgs) palette
+groupThem :: [a] -> [[a]]
+groupThem [] = []
+groupThem [x] = [[x, x]]
+groupThem [x, y] = groupThem [x, y, y]
+groupThem (x:y:z:xs) = [x,y] : groupThem' (x:y:z:xs)
+  where groupThem' (a:b:c:ls) = [a, b, c] : groupThem' (b:c:ls)
+        groupThem' [a,b] = [[a, b, b]]
+        groupThem' other = groupThem other
+
+splitMiddle :: Pixel a => Image a -> Int -> Image a
+splitMiddle img w = let wt = imageWidth img
+                    in if wt == 2 * w
+                          then generateImage (pixelAt img) w (imageHeight img)
+                          else generateImage (\x y -> pixelAt img (x + w) y) w (imageHeight img)
 
 concatImage :: Pixel a => Image a -> Image a -> Image a
 concatImage a b = generateImage fc (imageWidth a + imageWidth b) (imageHeight a)
@@ -32,14 +39,14 @@ concatImages [] = generateImage (\_ _ -> PixelRGBA8 0 0 0 0) 0 0
 concatImages (x:xs) = foldl' concatImage x xs
 
 splitImages :: Pixel a => Image a -> Int -> [Image a]
-splitImages a n = if (imageWidth a < n) then []
-                  else generateImage (\x y -> pixelAt a x y) n (imageHeight a) : splitImages (generateImage (\x y -> pixelAt a (x + n) y) (imageWidth a -                   n) (imageHeight a)) n
+splitImages a n = if imageWidth a < n then []
+                  else generateImage (pixelAt a) n (imageHeight a) : splitImages (generateImage (\x y -> pixelAt a (x + n) y) (imageWidth a -                   n) (imageHeight a)) n
 
 paletteThem' :: FilePath -> FilePath -> IO ()
 paletteThem' pFile imgDir =
              do dynimg <- readImage pFile
                 files <- getDirectoryContents imgDir
-                let imgFiles = filter isImage files
+                let imgFiles = sort $ filter isImage files
                 imgs <- mapM readImage imgFiles
                 createDirectoryIfMissing True (imgDir ++ dirSep ++ "res")
                 let res = do dimg <- dynimg
@@ -47,13 +54,19 @@ paletteThem' pFile imgDir =
                              let palette = convertRGB8 dimg
                              let imgs'' = map convertRGBA8 imgs'
                              let width = imageWidth $ head imgs''
-                             let bigImg =ImageRGBA8 $ concatImages imgs''
-                             bigP <- paletteItAnnexe palette bigImg
-                             let pImgs = splitImages bigP width
-                             let pImgsWithName = zip pImgs imgFiles
-                             let ios = mapM_ (\(img, f) -> putStrLn ("treating : " ++ f) >> writePng (imgDir ++ dirSep ++ "res" ++ dirSep ++ f ++ ".png") img >> putStrLn "done") pImgsWithName
-                             return ios
+                             let grpImgs = groupThem imgs''
+                             let imgsWithName = zip imgFiles grpImgs
+                             ios <- mapM (paletteThatGroup imgDir palette width) imgsWithName
+                             return $ sequence_ ios
                 either putStrLn id res
+
+paletteThatGroup :: FilePath -> Palette -> Int -> (FilePath,[Image PixelRGBA8]) -> Either String (IO ())
+paletteThatGroup imgDir pal w (f, imgs) = do let bigIm = concatImages imgs
+                                             bigP <- paletteItAnnexe pal (ImageRGBA8 bigIm)
+                                             let bigIm' = splitMiddle bigP w
+                                             return $ do putStrLn $ "treating : " ++ f
+                                                         writePng (imgDir ++ dirSep ++ "res" ++ dirSep ++ f ++ ".png") bigIm'
+                                                         putStrLn "done"
 
 
 
