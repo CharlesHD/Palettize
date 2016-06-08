@@ -15,61 +15,51 @@ isImage :: FilePath -> Bool
 isImage p = any (`isSuffixOf` p) formats
         where formats = [".jpg", ".jpeg", ".png", ".gif"]
 
-paletteThem :: FilePath -> FilePath ->  IO ()
-paletteThem paletteFile imgDir =
-            do dynimg <- readImage paletteFile
-               let palette = fmap convertRGB8 dynimg
-               files <- getDirectoryContents imgDir
-
+paletteThem :: FilePath -> [FilePath] ->  IO ()
+paletteThem imgDir paletteFiles =
+            do files <- getDirectoryContents imgDir
                let imgs = filter isImage files
-               either putStrLn (\x -> mapM_ (paletteIt imgDir x) imgs) palette
+               mapM_ (paletteIt imgDir paletteFiles) imgs
 
+makeImgFromImgPalette :: Image Pixel8 -> [Image PixelRGBA8] -> Image PixelRGBA8
+makeImgFromImgPalette img pixs = generateImage f w h
+                      where pw = imageWidth (head pixs)
+                            ph = imageHeight (head pixs)
+                            iw = imageWidth img
+                            ih = imageHeight img
+                            w = pw * iw
+                            h = ph * ih
+                            f x y = let dx = div x pw
+                                        dy = div y ph
+                                        rx = rem x pw
+                                        ry = rem y ph
+                                        piximg =  pixs !! rem (fromIntegral (pixelAt img dx dy)) (length pixs)
+                                    in pixelAt piximg rx ry
 
-mkPalOpt :: Palette -> PaletteOptions
-mkPalOpt p = PaletteOptions {
+mkPalOpt :: [Image PixelRGBA8] -> PaletteOptions
+mkPalOpt pimgs = PaletteOptions {
          paletteCreationMethod = MedianMeanCut,
          enableImageDithering = True,
-         paletteColorCount = imageWidth p
+         paletteColorCount = length pimgs
 }
 
-reorderPalette :: Palette -> Palette -> Palette
-reorderPalette p p' = let pl  = [pixelAt p  x 0 | x <- [0.. imageWidth p - 1]]
-                          pl' = [pixelAt p' x 0 | x <- [0.. imageWidth p - 1]]
-                          perm =  bestPerm pl' pl
-                          in generateImage (\x _ -> perm !! x) (imageWidth p) (imageHeight p)
-
-bestPerm :: [PixelRGB8] -> [PixelRGB8] -> [PixelRGB8]
-bestPerm _ [] = []
-bestPerm [] _ = []
-bestPerm (x:xs) l = let best = minimumBy (comparePerm x) l
-                        comparePerm x p1 p2 = compare (distance x p1) (distance x p2)
-                        l' = filter (/= best) l
-                    in best : bestPerm xs l
-
-distance :: PixelRGB8 -> PixelRGB8 -> Int
-distance (PixelRGB8 r1 g1 b1) (PixelRGB8 r2 g2 b2) = abs $ (fromIntegral r2 - fromIntegral r1) * (fromIntegral g2 - fromIntegral g1) * (fromIntegral b2 - fromIntegral b1)
-
-paletteIt :: FilePath -> Palette -> FilePath -> IO ()
+paletteIt :: FilePath -> [FilePath] -> FilePath -> IO ()
 paletteIt dir pal file = do dynimg <- readImage $ dir ++ dirSep ++ file
+                            p2 <- mapM readImage pal
                             putStrLn $ "treating : " ++ file
                             createDirectoryIfMissing True (dir ++ dirSep ++ "res")
-                            let img = paletteItAnnexe pal =<< dynimg
+                            let img = do p <- sequence p2
+                                         img' <- dynimg
+                                         paletteItAnnexe p img'
                             either putStrLn (writePng (dir ++ dirSep ++ "res" ++ dirSep ++ file ++ ".png")) img
                             putStrLn "done"
 
 
-paletteItAnnexe :: Palette -> DynamicImage -> Either String (Image PixelRGBA8)
+paletteItAnnexe :: [DynamicImage] -> DynamicImage -> Either String (Image PixelRGBA8)
 paletteItAnnexe p img =
     let img' = convertRGBA8 img
-        appendAlpha a =
-            generateImage (\x y -> let (PixelRGB8 r g b) = pixelAt a x y
-                                       (PixelRGBA8 _ _ _ alp) = pixelAt img' x y
-                                   in PixelRGBA8 r g b alp) (imageWidth a) (imageHeight a)
-        palOpt = mkPalOpt p
-        (pImg, p2) = palettize palOpt
-                               (pixelMap (\(PixelRGBA8 r g b _ ) -> PixelRGB8 r g b) img')
-        p3 = reorderPalette p p2
-    in do gifByte <- encodeGifImageWithPalette pImg p3
-          gif <- decodeImage $ B.toStrict gifByte
-          let rgb = convertRGB8 gif
-          return $ appendAlpha rgb
+        p2 = map convertRGBA8 p
+        palOpt = mkPalOpt p2
+        (pImg, _) = palettize palOpt
+                                (pixelMap (\(PixelRGBA8 r g b _ ) -> PixelRGB8 r g b) img')
+    in Right $ makeImgFromImgPalette pImg p2
