@@ -46,8 +46,11 @@ bestPerm (x:xs) l = let best = minimumBy (comparePerm x) l
                         l' = filter (/= best) l
                     in best : bestPerm xs l
 
+square :: Int -> Int
+square x = x * x
 distance :: PixelRGB8 -> PixelRGB8 -> Int
-distance (PixelRGB8 r1 g1 b1) (PixelRGB8 r2 g2 b2) = abs $ (fromIntegral r2 - fromIntegral r1) * (fromIntegral g2 - fromIntegral g1) * (fromIntegral b2 - fromIntegral b1)
+distance (PixelRGB8 r1 g1 b1) (PixelRGB8 r2 g2 b2) = (f r1 r2) + (f g1 g2) + (f b1 b2)
+  where f x y = square (fromIntegral x - fromIntegral y)
 
 paletteIt :: FilePath -> Palette -> FilePath -> IO ()
 paletteIt dir pal file = do dynimg <- readImage $ dir ++ dirSep ++ file
